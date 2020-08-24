@@ -10,6 +10,8 @@ local templar_target_count = 3;
 local smuggler_charm = 41000;
 local smuggler_target = 15045;
 
+-- TODO: Hailing a guild master for a different guild/order should produce some flavor text about them not being interesting in dealing with them so long as they are members of the other guild/order
+-- TODO: Bind the quest to the npc that started the quest? Can use data bucket
 function bountyquest.do_dialog(e)
     local mob_class = e.self:GetClass();
     
@@ -19,7 +21,7 @@ function bountyquest.do_dialog(e)
     elseif (e.self:GetNPCTypeID() == templar_defend) then
         -- On hailing `templar_target`, spawn quantity `templar_target_count` of `templar_target` to attack the `templar_target`
         if (e.message:findi("hail")) then
-            -- TODO: Prevent doing this more than once with a databucket value
+            -- TODO: Prevent doing this more than once with a databucket value. After successfully defending the target, the dialog can state something about returning to the guild master
             e.self:Say("Greetings, adventurer. You must have been sent from the Templar's Order! Please protect me, the Bounty Hunter's Guild has put a bounty on my head!");
             for i=1,templar_target_count do
                 eq.spawn2(templar_target, 0, 0, e.self:GetX(), e.self:GetY()+5,  e.self:GetZ()+5,  e.self:GetHeading());
@@ -30,15 +32,21 @@ function bountyquest.do_dialog(e)
 end
 
 function bountyquest.do_death(e)
-    if (e.self:GetNPCTypeID() == bounty_target and eq.get_data("bounty_target_killed_" .. e.other:CharacterID()) == "0") then
-        eq.set_data("bounty_target_killed_" .. e.other:CharacterID(), "1");
-        e.other:Message(15, "You have slain your bounty target! Return to the Bounty Hunter's Guild to show that you have proved yourself.");
-    elseif (e.self:GetNPCTypeID() == templar_target) then
-        local killed = tonumber(eq.get_data("templar_target_killed_" .. e.other:CharacterID()));
-        if (killed ~= "" and killed < templar_target_count) then
-            eq.set_data("templar_target_killed_" .. e.other:CharacterID(), tostring(killed+1));
-            if ((killed+1) == templar_target_count) then
-                e.other:Message(15, "You have defended your target! Return to the Templar's Order to show that you have proved yourself.")
+
+    local mob = e.other;
+    if (mob.valid and mob:IsClient()) then
+        local client = mob:CastToClient();
+
+        if (e.self:GetNPCTypeID() == bounty_target and eq.get_data("bounty_target_killed_" .. client:CharacterID()) == "0") then
+            eq.set_data("bounty_target_killed_" .. client:CharacterID(), "1");
+            client:Message(15, "You have slain your bounty target! Return to the Bounty Hunter's Guild to show that you have proved yourself.");
+        elseif (e.self:GetNPCTypeID() == templar_target) then
+            local killed = tonumber(eq.get_data("templar_target_killed_" .. client:CharacterID()));
+            if (killed ~= "" and killed < templar_target_count) then
+                eq.set_data("templar_target_killed_" .. client:CharacterID(), tostring(killed+1));
+                if ((killed+1) == templar_target_count) then
+                    client:Message(15, "You have defended your target! Return to the Templar's Order to show that you have proved yourself.")
+                end
             end
         end
     end
